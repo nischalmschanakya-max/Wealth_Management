@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WealthAxis | Client Advisory Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+/* ─── RESET ─────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+:root{
+  /* Palette */
+  --bg:          #f5f6fa;
+  --bg-alt:      #eef0f7;
+  --surface:     #ffffff;
+  --surface-2:   #f9fafc;
+  --border:      #e2e6f0;
+  --border-dark: #cdd2e0;
+
+  /* Brand */
+  --indigo:      #4f46e5;
+  --indigo-light:#ede9fe;
+  --indigo-dark: #3730a3;
+  --gold:        #d97706;
+  --gold-light:  #fef3c7;
+
+  /* Semantic */
+  --green:       #16a34a;
+  --green-light: #dcfce7;
+  --red:         #dc2626;
+  --red-light:   #fee2e2;
+  --blue:        #2563eb;
+  --blue-light:  #dbeafe;
+  --purple:      #7c3aed;
+  --purple-light:#ede9fe;
+
+  /* Text */
+  --text-900: #0f172a;
+  --text-700: #334155;
+  --text-500: #64748b;
+  --text-400: #94a3b8;
+  --text-300: #cbd5e1;
+
+  /* Sizes */
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  18px;
+  --radius-xl:  24px;
+  --shadow-sm:  0 1px 3px rgba(15,23,42,.07), 0 1px 2px rgba(15,23,42,.04);
+  --shadow-md:  0 4px 16px rgba(15,23,42,.09), 0 2px 4px rgba(15,23,42,.04);
+  --shadow-lg:  0 10px 32px rgba(15,23,42,.12), 0 4px 8px rgba(15,23,42,.05);
+  --font:       'Inter', system-ui, -apple-system, sans-serif;
+  --mono:       'Menlo','Consolas',monospace;
+  --ease:       all .22s cubic-bezier(.4,0,.2,1);
+}
+
+html{font-size:16px;scroll-behavior:smooth;}
+body{font-family:var(--font);background:var(--bg);color:var(--text-900);min-height:100vh;line-height:1.6;}
+
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:var(--bg-alt);}
+::-webkit-scrollbar-thumb{background:var(--border-dark);border-radius:4px;}
+
+/* ─── TOP BAR ───────────────────────────────────────────────── */
+.topbar{
+  position:sticky;top:0;z-index:200;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  box-shadow:var(--shadow-sm);
+  height:68px;padding:0 2rem;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.brand{display:flex;align-items:center;gap:14px;}
+.brand-mark{
+  width:40px;height:40px;border-radius:10px;
+  background:linear-gradient(135deg,var(--indigo) 0%,var(--purple) 100%);
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-weight:800;font-size:15px;letter-spacing:-.5px;
+  box-shadow:0 4px 12px rgba(79,70,229,.35);
+  flex-shrink:0;
+}
+.brand-name{font-size:1.25rem;font-weight:800;color:var(--text-900);letter-spacing:-.02em;}
+.brand-tagline{font-size:.7rem;color:var(--indigo);font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
+
+.topbar-right{display:flex;align-items:center;gap:14px;}
+
+.status-pill{
+  display:flex;align-items:center;gap:6px;
+  font-size:.72rem;font-weight:600;color:var(--green);
+  background:var(--green-light);border:1px solid #bbf7d0;
+  padding:4px 12px;border-radius:20px;letter-spacing:.04em;
+}
+.status-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 6px var(--green);
+  animation:blink 2.2s infinite;
+}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+#inventoryBadge{
+  display:none;
+  padding:4px 12px;border-radius:20px;
+  font-size:.72rem;font-weight:600;letter-spacing:.04em;
+  background:var(--green-light);color:var(--green);
+  border:1px solid #bbf7d0;
+  animation:popIn .3s ease;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.92);}to{opacity:1;transform:scale(1);}}
+
+.csv-label{
+  display:flex;align-items:center;gap:6px;cursor:pointer;
+  font-size:.72rem;font-weight:500;color:var(--text-500);
+  padding:6px 12px;border:1.5px dashed var(--border-dark);
+  border-radius:var(--radius-sm);transition:var(--ease);
+  white-space:nowrap;
+}
+.csv-label:hover{border-color:var(--indigo);color:var(--indigo);}
+#csvFile{display:none;}
+
+/* ─── LAYOUT ────────────────────────────────────────────────── */
+.layout{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 68px);}
+
+/* ─── SIDEBAR ───────────────────────────────────────────────── */
+.sidebar{
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  padding:1.8rem 1.5rem;
+  display:flex;flex-direction:column;gap:1.4rem;
+  overflow-y:auto;
+}
+
+.section-label{
+  font-size:.7rem;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--indigo);
+  padding-bottom:8px;border-bottom:2px solid var(--indigo-light);
+  display:flex;align-items:center;gap:8px;
+}
+.section-label::before{
+  content:'';width:3px;height:14px;
+  background:var(--indigo);border-radius:2px;display:inline-block;
+}
+
+/* Form fields */
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-label{font-size:.82rem;font-weight:600;color:var(--text-700);}
+.form-hint{font-size:.72rem;color:var(--text-400);}
+
+.form-input,.form-select{
+  background:var(--surface-2);
+  border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);
+  color:var(--text-900);
+  padding:11px 14px;
+  font-size:.92rem;
+  font-family:var(--font);
+  font-weight:500;
+  transition:var(--ease);
+  outline:none;
+  -webkit-appearance:none;appearance:none;
+  width:100%;
+}
+.form-input:focus,.form-select:focus{
+  border-color:var(--indigo);
+  background:#fff;
+  box-shadow:0 0 0 3px rgba(79,70,229,.12);
+}
+.form-input::placeholder{color:var(--text-400);font-weight:400;}
+.form-select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+  padding-right:36px;cursor:pointer;
+}
+.form-select option{background:#fff;color:var(--text-900);}
+
+.prefix-wrap{position:relative;}
+.prefix{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:var(--indigo);font-weight:700;font-size:.9rem;pointer-events:none;
+}
+.prefix-wrap .form-input{padding-left:26px;}
+
+/* Risk preview bar */
+.risk-preview{display:flex;flex-direction:column;gap:8px;}
+.risk-bars{display:flex;gap:5px;}
+.risk-bar{flex:1;height:5px;border-radius:3px;background:var(--border);transition:background .4s ease;}
+.risk-bar.c{background:var(--blue);}
+.risk-bar.m{background:var(--gold);}
+.risk-bar.a{background:var(--red);}
+.risk-bar-labels{display:flex;justify-content:space-between;font-size:.68rem;color:var(--text-400);font-weight:500;}
+#riskPreviewText{font-size:.75rem;font-weight:700;text-align:center;color:var(--text-700);min-height:1em;}
+
+/* Generate button */
+.btn-generate{
+  background:linear-gradient(135deg,var(--indigo) 0%,var(--purple) 100%);
+  color:#fff;border:none;border-radius:var(--radius-md);
+  padding:14px 20px;font-size:1rem;font-weight:700;
+  letter-spacing:.02em;cursor:pointer;
+  transition:var(--ease);width:100%;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  box-shadow:0 4px 16px rgba(79,70,229,.35);
+  margin-top:4px;
+}
+.btn-generate:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(79,70,229,.45);}
+.btn-generate:active{transform:translateY(0);}
+
+.disclaimer{
+  font-size:.68rem;color:var(--text-400);line-height:1.7;
+  margin-top:auto;padding-top:12px;
+  border-top:1px solid var(--border);
+}
+
+/* ─── MAIN ──────────────────────────────────────────────────── */
+.main{
+  padding:2rem;display:flex;flex-direction:column;gap:1.6rem;
+  background:var(--bg);overflow-y:auto;
+}
+
+/* ─── PLACEHOLDER ───────────────────────────────────────────── */
+.placeholder{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:16px;text-align:center;padding:4rem 2rem;
+}
+.placeholder-icon{
+  width:72px;height:72px;border-radius:20px;
+  background:var(--indigo-light);
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;
+}
+.placeholder-title{font-size:1.3rem;font-weight:700;color:var(--text-700);}
+.placeholder-sub{font-size:.9rem;color:var(--text-500);max-width:360px;line-height:1.7;}
+.placeholder-arrow{
+  font-size:.8rem;color:var(--indigo);font-weight:600;
+  background:var(--indigo-light);padding:6px 16px;border-radius:20px;
+}
+
+/* ─── OUTPUT ────────────────────────────────────────────────── */
+#outputSection{display:none;}
+
+/* Profile banner */
+.profile-banner{
+  background:linear-gradient(135deg,var(--indigo) 0%,var(--purple) 100%);
+  border-radius:var(--radius-xl);
+  padding:2rem 2.4rem;
+  display:flex;align-items:center;justify-content:space-between;gap:1.5rem;
+  box-shadow:0 8px 32px rgba(79,70,229,.3);
+  color:#fff;position:relative;overflow:hidden;
+}
+.profile-banner::before{
+  content:'';position:absolute;right:-60px;top:-60px;
+  width:220px;height:220px;border-radius:50%;
+  background:rgba(255,255,255,.06);
+}
+.profile-banner::after{
+  content:'';position:absolute;right:60px;bottom:-80px;
+  width:160px;height:160px;border-radius:50%;
+  background:rgba(255,255,255,.04);
+}
+.banner-left{display:flex;align-items:center;gap:1.4rem;position:relative;z-index:1;}
+.banner-icon{
+  width:60px;height:60px;border-radius:16px;
+  background:rgba(255,255,255,.18);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.8rem;flex-shrink:0;
+}
+.banner-label{font-size:.72rem;font-weight:600;opacity:.8;letter-spacing:.1em;text-transform:uppercase;}
+.banner-profile{font-size:2rem;font-weight:900;letter-spacing:-.03em;line-height:1.1;}
+.banner-desc{font-size:.82rem;opacity:.82;margin-top:4px;max-width:400px;line-height:1.6;}
+.banner-right{text-align:right;position:relative;z-index:1;flex-shrink:0;}
+.score-big{font-size:3.2rem;font-weight:900;line-height:1;font-family:var(--mono);opacity:.95;}
+.score-label{font-size:.72rem;opacity:.7;letter-spacing:.08em;text-transform:uppercase;margin-top:2px;}
+
+/* Stats strip */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:1.3rem 1.4rem;
+  box-shadow:var(--shadow-sm);
+  display:flex;flex-direction:column;gap:4px;
+}
+.stat-card-label{font-size:.72rem;font-weight:600;color:var(--text-500);text-transform:uppercase;letter-spacing:.07em;}
+.stat-card-val{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;font-family:var(--mono);line-height:1.1;}
+.stat-card-val.indigo{color:var(--indigo);}
+.stat-card-val.green{color:var(--green);}
+.stat-card-val.gold{color:var(--gold);}
+.stat-card-sub{font-size:.72rem;color:var(--text-400);}
+
+/* Cards */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:1.6rem;
+  box-shadow:var(--shadow-sm);
+  display:flex;flex-direction:column;gap:1.2rem;
+}
+.card-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.card-title{
+  font-size:.78rem;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-500);
+  display:flex;align-items:center;gap:8px;
+}
+.card-dot{width:7px;height:7px;border-radius:50%;background:var(--indigo);flex-shrink:0;}
+.card-badge{
+  font-size:.68rem;font-weight:600;padding:3px 10px;
+  border-radius:20px;letter-spacing:.05em;text-transform:uppercase;
+}
+.badge-blue{background:var(--blue-light);color:var(--blue);border:1px solid #bfdbfe;}
+.badge-green{background:var(--green-light);color:var(--green);border:1px solid #bbf7d0;}
+.badge-gold{background:var(--gold-light);color:var(--gold);border:1px solid #fde68a;}
+
+/* 2-col grid */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;}
+
+/* Doughnut layout */
+.donut-layout{display:flex;align-items:center;gap:2rem;}
+.donut-wrap{flex:0 0 180px;max-width:180px;}
+.donut-legend{display:flex;flex-direction:column;gap:14px;flex:1;}
+.donut-row{display:flex;align-items:center;gap:12px;}
+.donut-swatch{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.donut-key{font-size:.85rem;color:var(--text-700);font-weight:500;flex:1;}
+.donut-pct{font-size:1.5rem;font-weight:800;font-family:var(--mono);}
+.donut-pct.equity{color:var(--indigo);}
+.donut-pct.debt{color:var(--gold);}
+.donut-divider{height:1px;background:var(--border);width:100%;}
+.rebalance-note{font-size:.75rem;color:var(--text-500);line-height:1.5;}
+
+/* Chart wrapper */
+.chart-wrap{position:relative;width:100%;}
+.chart-wrap canvas{width:100%!important;}
+
+/* Legend row */
+.legend-strip{display:flex;gap:1.4rem;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:7px;font-size:.78rem;color:var(--text-700);font-weight:500;}
+.legend-line{width:20px;height:3px;border-radius:2px;flex-shrink:0;}
+
+/* Fund table */
+.table-wrap{overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:.85rem;}
+thead tr{background:var(--bg);border-bottom:2px solid var(--border);}
+th{
+  padding:12px 16px;text-align:left;
+  font-size:.7rem;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-500);white-space:nowrap;
+}
+tbody tr{border-bottom:1px solid var(--border);transition:background .15s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:var(--surface-2);}
+td{padding:13px 16px;color:var(--text-900);vertical-align:middle;}
+
+.fund-name{font-size:.9rem;font-weight:700;color:var(--text-900);}
+.fund-ticker{font-size:.7rem;color:var(--text-400);font-family:var(--mono);margin-top:2px;}
+
+.pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;letter-spacing:.04em;}
+.pill-equity  {background:var(--blue-light);color:var(--blue);}
+.pill-debt    {background:var(--gold-light);color:var(--gold);}
+.pill-hybrid  {background:var(--green-light);color:var(--green);}
+.pill-commodity{background:var(--purple-light);color:var(--purple);}
+
+.chip{display:inline-block;padding:3px 10px;border-radius:6px;font-size:.7rem;font-weight:700;text-transform:uppercase;}
+.chip-agg  {background:var(--red-light);color:var(--red);}
+.chip-mod  {background:var(--gold-light);color:var(--gold);}
+.chip-con  {background:var(--blue-light);color:var(--blue);}
+
+.ret{font-size:.92rem;font-weight:700;font-family:var(--mono);}
+.ret-pos{color:var(--green);}
+.ret-neg{color:var(--red);}
+
+.stars{color:#f59e0b;font-size:.85rem;letter-spacing:-1px;}
+
+.exp-wrap{display:flex;align-items:center;gap:8px;}
+.exp-val{font-family:var(--mono);font-size:.82rem;color:var(--text-700);font-weight:600;}
+.exp-bar{width:54px;height:5px;background:var(--border);border-radius:3px;}
+.exp-fill{height:100%;border-radius:3px;background:var(--gold);}
+
+.fit-score{
+  font-size:.95rem;font-weight:800;font-family:var(--mono);
+  color:var(--indigo);
+}
+
+.best-row{background:rgba(79,70,229,.04)!important;}
+.best-row td:first-child{border-left:3px solid var(--indigo);padding-left:13px;}
+.best-badge{
+  display:inline-block;font-size:.6rem;font-weight:800;
+  background:var(--indigo);color:#fff;
+  padding:2px 7px;border-radius:4px;margin-left:6px;
+  vertical-align:middle;letter-spacing:.04em;text-transform:uppercase;
+}
+
+/* Projector card */
+.projector-card{gap:1.4rem;}
+
+/* ─── RESPONSIVE ─────────────────────────────────────────────── */
+@media(max-width:1100px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .grid-2{grid-template-columns:1fr;}
+}
+@media(max-width:800px){
+  .layout{grid-template-columns:1fr;}
+  .sidebar{border-right:none;border-bottom:1px solid var(--border);}
+  .stats-grid{grid-template-columns:1fr 1fr;}
+  .topbar{padding:0 1rem;}
+  .brand-tagline{display:none;}
+  .donut-layout{flex-direction:column;align-items:flex-start;}
+  .donut-wrap{max-width:160px;}
+  .profile-banner{flex-direction:column;align-items:flex-start;}
+  .banner-right{text-align:left;}
+}
+@media(max-width:500px){
+  .stats-grid{grid-template-columns:1fr;}
+  .main{padding:1rem;}
+  .sidebar{padding:1.2rem 1rem;}
+}
+
+/* ─── ANIMATIONS ─────────────────────────────────────────────── */
+@keyframes slideUp{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);}}
+.anim{animation:slideUp .38s ease both;}
+.anim-d1{animation-delay:.05s;}
+.anim-d2{animation-delay:.10s;}
+.anim-d3{animation-delay:.15s;}
+.anim-d4{animation-delay:.20s;}
+.anim-d5{animation-delay:.25s;}
+.anim-d6{animation-delay:.30s;}
+</style>
+</head>
+<body>
+
+<!-- ══ TOP BAR ══════════════════════════════════════════════════ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">WA</div>
+    <div>
+      <div class="brand-name">WealthAxis</div>
+      <div class="brand-tagline">Client Advisory Platform</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="status-pill"><div class="status-dot"></div>Live Session</div>
+    <span id="inventoryBadge">✓ Inventory Updated</span>
+    <label class="csv-label" for="csvFile">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Update Firm Inventory (CSV)
+    </label>
+    <input type="file" id="csvFile" accept=".csv"/>
+  </div>
+</header>
+
+<!-- ══ MAIN LAYOUT ══════════════════════════════════════════════ -->
+<div class="layout">
+
+  <!-- ── SIDEBAR ────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="section-label">Client Discovery</div>
+
+    <div class="form-group">
+      <label class="form-label">Current Age</label>
+      <input class="form-input" id="clientAge" type="number" min="18" max="80" placeholder="e.g. 35"/>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Initial Investment</label>
+      <div class="prefix-wrap">
+        <span class="prefix">₹</span>
+        <input class="form-input" id="initAmount" type="number" min="0" placeholder="5,00,000"/>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Monthly SIP Amount</label>
+      <div class="prefix-wrap">
+        <span class="prefix">₹</span>
+        <input class="form-input" id="sipAmount" type="number" min="0" placeholder="10,000"/>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Investment Time Horizon</label>
+      <select class="form-select" id="timeHorizon">
+        <option value="">— Select horizon —</option>
+        <option value="short">1–3 Years  (Short Term)</option>
+        <option value="medium">4–7 Years  (Medium Term)</option>
+        <option value="long">8–15 Years (Long Term)</option>
+        <option value="verylong">15+ Years  (Wealth Creation)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Risk Psychology</label>
+      <div class="form-hint">If markets drop 20% in a month, you would…</div>
+      <select class="form-select" id="riskPsychology" style="margin-top:4px;">
+        <option value="">— Select response —</option>
+        <option value="panic">Panic &amp; Sell Everything</option>
+        <option value="hold">Hold &amp; Wait it Out</option>
+        <option value="buy">Buy More at a Discount</option>
+      </select>
+    </div>
+
+    <!-- Live risk preview -->
+    <div class="risk-preview">
+      <div id="riskPreviewText"></div>
+      <div class="risk-bars">
+        <div class="risk-bar" id="rb1"></div>
+        <div class="risk-bar" id="rb2"></div>
+        <div class="risk-bar" id="rb3"></div>
+        <div class="risk-bar" id="rb4"></div>
+        <div class="risk-bar" id="rb5"></div>
+      </div>
+      <div class="risk-bar-labels">
+        <span>Conservative</span>
+        <span>Aggressive</span>
+      </div>
+    </div>
+
+    <button class="btn-generate" onclick="generateStrategy()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Generate Strategy
+    </button>
+
+    <p class="disclaimer">For illustrative purposes only. Does not constitute investment advice. Past performance is not indicative of future results. Consult a SEBI-registered advisor before investing.</p>
+  </aside>
+
+  <!-- ── MAIN CONTENT ─────────────────────────────────────────── -->
+  <main class="main" id="mainArea">
+
+    <!-- Placeholder -->
+    <div id="placeholderState" class="placeholder">
+      <div class="placeholder-icon">📊</div>
+      <div class="placeholder-title">Client Strategy Workspace</div>
+      <div class="placeholder-sub">Fill in the Client Discovery form on the left and click <strong>Generate Strategy</strong> to build a personalised investment recommendation.</div>
+      <div class="placeholder-arrow">← Start with the form</div>
+    </div>
+
+    <!-- ── OUTPUT ────────────────────────────────────────────── -->
+    <div id="outputSection">
+
+      <!-- 1. Profile Banner -->
+      <div class="profile-banner anim anim-d1" id="profileBanner">
+        <div class="banner-left">
+          <div class="banner-icon" id="bannerIcon">🎯</div>
+          <div>
+            <div class="banner-label">Risk Profile Determined</div>
+            <div class="banner-profile" id="bannerProfile">—</div>
+            <div class="banner-desc" id="bannerDesc">—</div>
+          </div>
+        </div>
+        <div class="banner-right">
+          <div class="score-big" id="scoreNum">—</div>
+          <div class="score-label">Risk Score / 14</div>
+        </div>
+      </div>
+
+      <!-- 2. Stats Strip -->
+      <div class="stats-grid anim anim-d2">
+        <div class="stat-card">
+          <div class="stat-card-label">Initial Capital</div>
+          <div class="stat-card-val indigo" id="statInit">—</div>
+          <div class="stat-card-sub">One-time investment</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Monthly SIP</div>
+          <div class="stat-card-val indigo" id="statSip">—</div>
+          <div class="stat-card-sub">Systematic investment</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Portfolio Avg Return</div>
+          <div class="stat-card-val green" id="statReturn">—</div>
+          <div class="stat-card-sub">3-yr annualised blend</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Projected Corpus</div>
+          <div class="stat-card-val gold" id="statCorpus">—</div>
+          <div class="stat-card-sub">At horizon end</div>
+        </div>
+      </div>
+
+      <!-- 3. Allocation + Benchmark -->
+      <div class="grid-2 anim anim-d3">
+
+        <!-- Asset Allocation -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title"><div class="card-dot"></div>Asset Allocation</div>
+            <span class="card-badge badge-blue">Recommended</span>
+          </div>
+          <div class="donut-layout">
+            <div class="donut-wrap">
+              <canvas id="allocChart"></canvas>
+            </div>
+            <div class="donut-legend" id="allocLegend"></div>
+          </div>
+        </div>
+
+        <!-- Benchmark Comparison -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title"><div class="card-dot"></div>Benchmark Comparison</div>
+            <span class="card-badge badge-gold">3-Year Annualised</span>
+          </div>
+          <div class="chart-wrap" style="height:210px;">
+            <canvas id="benchChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Fund Table -->
+      <div class="card anim anim-d4">
+        <div class="card-head">
+          <div class="card-title"><div class="card-dot"></div>Recommended Fund Universe</div>
+          <span class="card-badge badge-green">Profile-Matched</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Fund</th>
+                <th>Category</th>
+                <th>Risk</th>
+                <th>3-Yr Return</th>
+                <th>Expense Ratio</th>
+                <th>Rating</th>
+                <th>Fit Score</th>
+              </tr>
+            </thead>
+            <tbody id="fundBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 5. Wealth Projector -->
+      <div class="card projector-card anim anim-d5">
+        <div class="card-head">
+          <div class="card-title"><div class="card-dot"></div>Wealth Projector</div>
+          <span class="card-badge badge-blue">Capital + SIP Growth</span>
+        </div>
+        <div class="legend-strip">
+          <div class="legend-item">
+            <div class="legend-line" style="background:var(--indigo);"></div>
+            <span id="legendPortfolio">Recommended Portfolio</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line" style="background:var(--text-400);border-top:2px dashed var(--text-400);height:0;margin:auto 0;"></div>
+            <span>Fixed Deposit (6% p.a.)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-line" style="background:var(--gold);"></div>
+            <span>Total Capital Invested</span>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:300px;">
+          <canvas id="projectorChart"></canvas>
+        </div>
+      </div>
+
+    </div><!-- /outputSection -->
+  </main>
+</div>
+
+<!-- ══ JAVASCRIPT ════════════════════════════════════════════════ -->
+<script>
+/* ─── DEFAULT FUND DATA ──────────────────────────────────────── */
+let fundInventory = [
+  { name:"Mirae Asset Large Cap Fund",         symbol:"MIRLCF",  category:"Equity",    risk:"Moderate",     threeYrReturn:14.8, expenseRatio:0.51, rating:5 },
+  { name:"HDFC Flexi Cap Fund",                symbol:"HDFCFCF", category:"Equity",    risk:"Moderate",     threeYrReturn:19.2, expenseRatio:0.77, rating:5 },
+  { name:"Parag Parikh Flexi Cap Fund",        symbol:"PPFCF",   category:"Equity",    risk:"Moderate",     threeYrReturn:21.3, expenseRatio:0.59, rating:5 },
+  { name:"Axis Bluechip Fund",                 symbol:"AXISBLC", category:"Equity",    risk:"Moderate",     threeYrReturn:12.4, expenseRatio:0.52, rating:4 },
+  { name:"Navi Nifty 50 Index Fund",           symbol:"NAVINF",  category:"Equity",    risk:"Moderate",     threeYrReturn:13.1, expenseRatio:0.06, rating:4 },
+  { name:"DSP Nifty Next 50 Index Fund",       symbol:"DSPNN50", category:"Equity",    risk:"Moderate",     threeYrReturn:15.4, expenseRatio:0.29, rating:4 },
+  { name:"ICICI Pru Balanced Advantage Fund",  symbol:"ICICIBA", category:"Hybrid",    risk:"Moderate",     threeYrReturn:13.6, expenseRatio:0.77, rating:5 },
+  { name:"Quant Small Cap Fund",               symbol:"QSMCP",   category:"Equity",    risk:"Aggressive",   threeYrReturn:38.7, expenseRatio:0.62, rating:5 },
+  { name:"Nippon India Small Cap Fund",        symbol:"NISMCP",  category:"Equity",    risk:"Aggressive",   threeYrReturn:34.5, expenseRatio:0.67, rating:4 },
+  { name:"Motilal Oswal Midcap Fund",          symbol:"MOSMID",  category:"Equity",    risk:"Aggressive",   threeYrReturn:29.8, expenseRatio:0.61, rating:4 },
+  { name:"Mirae Asset NYSE FANG+ ETF",         symbol:"MRAFNG",  category:"Equity",    risk:"Aggressive",   threeYrReturn:22.9, expenseRatio:0.71, rating:4 },
+  { name:"IIFL Focused Equity Fund",           symbol:"IIFLFE",  category:"Equity",    risk:"Aggressive",   threeYrReturn:26.1, expenseRatio:0.70, rating:3 },
+  { name:"SBI Magnum Gilt Fund",               symbol:"SBIGILT", category:"Debt",      risk:"Conservative", threeYrReturn:6.8,  expenseRatio:0.40, rating:4 },
+  { name:"HDFC Short Duration Fund",           symbol:"HDFCSHD", category:"Debt",      risk:"Conservative", threeYrReturn:7.2,  expenseRatio:0.32, rating:4 },
+  { name:"Aditya BSL Money Manager Fund",      symbol:"ABSLMM",  category:"Debt",      risk:"Conservative", threeYrReturn:7.8,  expenseRatio:0.22, rating:5 },
+  { name:"Kotak Bond Short Term Fund",         symbol:"KOTAKBS", category:"Debt",      risk:"Conservative", threeYrReturn:6.5,  expenseRatio:0.35, rating:3 },
+  { name:"Franklin India ST Income Plan",      symbol:"FISHIP",  category:"Debt",      risk:"Conservative", threeYrReturn:5.9,  expenseRatio:0.28, rating:3 },
+  { name:"UTI Gold ETF",                       symbol:"UTIGOLD", category:"Commodity", risk:"Conservative", threeYrReturn:11.4, expenseRatio:0.40, rating:3 },
+];
+
+/* ─── CHART INSTANCES ────────────────────────────────────────── */
+let chartAlloc=null, chartBench=null, chartProj=null;
+
+/* ─── PROFILES ───────────────────────────────────────────────── */
+const PROFILES = {
+  conservative:{
+    label:"Conservative", icon:"🛡️",
+    desc:"Capital preservation is the priority. Low-volatility instruments with stable, predictable returns and minimal drawdown risk.",
+    equity:20, debt:80,
+    matchRisks:["Conservative"],
+    color:"#2563eb"
+  },
+  moderate:{
+    label:"Moderate", icon:"⚖️",
+    desc:"Balanced growth and stability. Long-term wealth creation with managed downside exposure across diversified asset classes.",
+    equity:60, debt:40,
+    matchRisks:["Conservative","Moderate"],
+    color:"#d97706"
+  },
+  aggressive:{
+    label:"Aggressive", icon:"🚀",
+    desc:"Maximum growth orientation. High-conviction investors with long horizons who can absorb significant short-term volatility.",
+    equity:85, debt:15,
+    matchRisks:["Moderate","Aggressive"],
+    color:"#dc2626"
+  }
+};
+
+/* ─── SCORING ────────────────────────────────────────────────── */
+function calcScore(horizon, psycho){
+  const h={short:0,medium:3,long:6,verylong:8};
+  const p={panic:0,hold:3,buy:6};
+  return (h[horizon]||0)+(p[psycho]||0);
+}
+function scoreToKey(s){ return s<=5?"conservative":s<=9?"moderate":"aggressive"; }
+
+/* ─── RISK BAR PREVIEW ───────────────────────────────────────── */
+function updateRiskPreview(){
+  const h=document.getElementById("timeHorizon").value;
+  const p=document.getElementById("riskPsychology").value;
+  const bars=document.querySelectorAll(".risk-bar");
+  const txt=document.getElementById("riskPreviewText");
+  if(!h||!p){ bars.forEach(b=>b.className="risk-bar"); txt.textContent=""; return; }
+  const s=calcScore(h,p);
+  const key=scoreToKey(s);
+  const map={conservative:{cls:"c",n:1,label:"Conservative Investor",col:"var(--blue)"},
+             moderate:{cls:"m",n:3,label:"Moderate Investor",col:"var(--gold)"},
+             aggressive:{cls:"a",n:5,label:"Aggressive Investor",col:"var(--red)"}};
+  const m=map[key];
+  bars.forEach((b,i)=>{ b.className="risk-bar"+(i<m.n?" "+m.cls:""); });
+  txt.textContent="→  "+m.label;
+  txt.style.color=m.col;
+}
+document.getElementById("timeHorizon").addEventListener("change",updateRiskPreview);
+document.getElementById("riskPsychology").addEventListener("change",updateRiskPreview);
+
+/* ─── FORMATTERS ─────────────────────────────────────────────── */
+function fmtINR(n){
+  if(n>=1e7) return "₹"+(n/1e7).toFixed(2)+" Cr";
+  if(n>=1e5) return "₹"+(n/1e5).toFixed(2)+" L";
+  return "₹"+Math.round(n).toLocaleString("en-IN");
+}
+function stars(n){ return "★".repeat(Math.min(5,Math.max(0,n)))+"☆".repeat(Math.max(0,5-n)); }
+function pillClass(c){
+  return {Equity:"pill-equity",Debt:"pill-debt",Hybrid:"pill-hybrid",Commodity:"pill-commodity"}[c]||"pill-equity";
+}
+function chipClass(r){
+  return {Aggressive:"chip-agg",Moderate:"chip-mod",Conservative:"chip-con"}[r]||"chip-mod";
+}
+
+/* ─── CHART.JS GLOBALS ───────────────────────────────────────── */
+Chart.defaults.font.family="'Inter',system-ui,sans-serif";
+Chart.defaults.font.size=13;
+Chart.defaults.color="#64748b";
+Chart.defaults.plugins.legend.display=false;
+Chart.defaults.plugins.tooltip.backgroundColor="#0f172a";
+Chart.defaults.plugins.tooltip.titleColor="#f1f5f9";
+Chart.defaults.plugins.tooltip.bodyColor="#94a3b8";
+Chart.defaults.plugins.tooltip.padding=12;
+Chart.defaults.plugins.tooltip.cornerRadius=10;
+Chart.defaults.plugins.tooltip.borderColor="#1e293b";
+Chart.defaults.plugins.tooltip.borderWidth=1;
+
+/* ─── FILTER FUNDS ───────────────────────────────────────────── */
+function filterFunds(key, n){
+  const p=PROFILES[key];
+  const scored=fundInventory.map(f=>{
+    let s=0;
+    if(p.matchRisks.includes(f.risk)) s+=3;
+    if(key==="conservative"&&f.category==="Debt") s+=2;
+    if(key==="aggressive"&&f.category==="Equity") s+=2;
+    if(key==="moderate"&&(f.category==="Hybrid"||f.category==="Equity")) s+=1;
+    s+=(f.rating/5)*2;
+    s+=Math.min(2,f.threeYrReturn/20);
+    return {...f, fitScore:parseFloat(s.toFixed(1))};
+  });
+  return scored.sort((a,b)=>b.fitScore-a.fitScore).slice(0,n);
+}
+
+/* ─── WEALTH PROJECTION ──────────────────────────────────────── */
+function projectWealth(init,sip,ratePct,years){
+  const r=ratePct/100;
+  return Array.from({length:years+1},(_,y)=>{
+    const lump=init*Math.pow(1+r,y);
+    const mr=r/12, mo=y*12;
+    const sipFV=mo===0?0:sip*(Math.pow(1+mr,mo)-1)/mr*(1+mr);
+    return lump+sipFV;
+  });
+}
+function totalInvested(init,sip,years){
+  return Array.from({length:years+1},(_,y)=>init+sip*12*y);
+}
+function horizonYears(h){return {short:3,medium:7,long:15,verylong:25}[h]||10;}
+
+/* ─── GENERATE ───────────────────────────────────────────────── */
+function generateStrategy(){
+  const age   = parseFloat(document.getElementById("clientAge").value)||35;
+  const init  = parseFloat(document.getElementById("initAmount").value)||500000;
+  const sip   = parseFloat(document.getElementById("sipAmount").value)||10000;
+  const horiz = document.getElementById("timeHorizon").value;
+  const psych = document.getElementById("riskPsychology").value;
+
+  if(!horiz||!psych){
+    alert("Please select both Time Horizon and Risk Psychology to continue.");
+    return;
+  }
+
+  const score  = calcScore(horiz,psych);
+  const key    = scoreToKey(score);
+  const prof   = PROFILES[key];
+  const years  = horizonYears(horiz);
+  const funds  = filterFunds(key,6);
+  const avgRet = parseFloat((funds.reduce((s,f)=>s+f.threeYrReturn,0)/funds.length).toFixed(2));
+  const corpus = projectWealth(init,sip,avgRet,years).slice(-1)[0];
+
+  /* Show output */
+  document.getElementById("placeholderState").style.display="none";
+  document.getElementById("outputSection").style.display="block";
+
+  /* Profile Banner */
+  document.getElementById("bannerIcon").textContent=prof.icon;
+  document.getElementById("bannerProfile").textContent=prof.label.toUpperCase()+" INVESTOR";
+  document.getElementById("bannerDesc").textContent=prof.desc;
+  document.getElementById("scoreNum").textContent=score;
+
+  /* Stats */
+  document.getElementById("statInit").textContent=fmtINR(init);
+  document.getElementById("statSip").textContent=fmtINR(sip)+"/mo";
+  document.getElementById("statReturn").textContent=avgRet.toFixed(1)+"% p.a.";
+  document.getElementById("statCorpus").textContent=fmtINR(corpus);
+
+  /* Charts */
+  renderAlloc(prof, key);
+  renderBench(avgRet, key);
+  renderTable(funds);
+  renderProjector(init, sip, avgRet, years, prof.label);
+}
+
+/* ─── ALLOC CHART ────────────────────────────────────────────── */
+function renderAlloc(prof, key){
+  const ctx=document.getElementById("allocChart").getContext("2d");
+  if(chartAlloc) chartAlloc.destroy();
+
+  const colors={conservative:["#2563eb","#d97706"],moderate:["#4f46e5","#d97706"],aggressive:["#4f46e5","#6b7280"]};
+  const c=colors[key];
+
+  chartAlloc=new Chart(ctx,{
+    type:"doughnut",
+    data:{
+      labels:["Equity","Debt / Fixed Income"],
+      datasets:[{
+        data:[prof.equity,prof.debt],
+        backgroundColor:c,
+        borderWidth:0,
+        hoverOffset:10,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,cutout:"74%",
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}%`}}
+      }
+    }
+  });
+
+  document.getElementById("allocLegend").innerHTML=`
+    <div class="donut-row">
+      <div class="donut-swatch" style="background:${c[0]}"></div>
+      <div class="donut-key">Equity</div>
+      <div class="donut-pct equity">${prof.equity}%</div>
+    </div>
+    <div class="donut-row">
+      <div class="donut-swatch" style="background:${c[1]}"></div>
+      <div class="donut-key">Debt / Fixed Income</div>
+      <div class="donut-pct debt">${prof.debt}%</div>
+    </div>
+    <div class="donut-divider"></div>
+    <div class="rebalance-note">📅 Annual rebalancing recommended to maintain target allocation.</div>
+  `;
+}
+
+/* ─── BENCH CHART ────────────────────────────────────────────── */
+function renderBench(avgRet, key){
+  const ctx=document.getElementById("benchChart").getContext("2d");
+  if(chartBench) chartBench.destroy();
+
+  const pColor={conservative:"#2563eb",moderate:"#4f46e5",aggressive:"#dc2626"}[key];
+
+  chartBench=new Chart(ctx,{
+    type:"bar",
+    data:{
+      labels:["Your Portfolio","NIFTY 50","Fixed Deposit"],
+      datasets:[{
+        data:[avgRet,11,6],
+        backgroundColor:[pColor+"26","#2563eb26","#94a3b826"],
+        borderColor:[pColor,"#2563eb","#94a3b8"],
+        borderWidth:2,
+        borderRadius:8,
+        barThickness:42,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>` ${c.parsed.y.toFixed(1)}% per annum`}}
+      },
+      scales:{
+        x:{
+          grid:{display:false},
+          ticks:{font:{size:12,weight:"600"}}
+        },
+        y:{
+          grid:{color:"#f1f5f9",lineWidth:1},
+          border:{dash:[4,4]},
+          ticks:{callback:v=>v+"%",font:{size:11}},
+          beginAtZero:true,
+          suggestedMax:Math.max(avgRet,11,6)+5
+        }
+      }
+    }
+  });
+}
+
+/* ─── FUND TABLE ─────────────────────────────────────────────── */
+function renderTable(funds){
+  const tbody=document.getElementById("fundBody");
+  tbody.innerHTML="";
+  funds.forEach((f,i)=>{
+    const best=i===0;
+    const retCls=f.threeYrReturn>=0?"ret ret-pos":"ret ret-neg";
+    const expPct=Math.min(100,(f.expenseRatio/1.5)*100);
+    const row=document.createElement("tr");
+    if(best) row.className="best-row";
+    row.innerHTML=`
+      <td style="font-family:var(--mono);font-size:.78rem;color:var(--text-400);font-weight:600;">${String(i+1).padStart(2,"0")}</td>
+      <td>
+        <div class="fund-name">${f.name}${best?'<span class="best-badge">Best Fit</span>':''}</div>
+        <div class="fund-ticker">${f.symbol}</div>
+      </td>
+      <td><span class="pill ${pillClass(f.category)}">${f.category}</span></td>
+      <td><span class="chip ${chipClass(f.risk)}">${f.risk}</span></td>
+      <td><span class="${retCls}">${f.threeYrReturn>0?"+":""}${f.threeYrReturn.toFixed(1)}%</span></td>
+      <td>
+        <div class="exp-wrap">
+          <span class="exp-val">${f.expenseRatio.toFixed(2)}%</span>
+          <div class="exp-bar"><div class="exp-fill" style="width:${expPct}%"></div></div>
+        </div>
+      </td>
+      <td><span class="stars">${stars(f.rating)}</span></td>
+      <td><span class="fit-score">${f.fitScore}</span></td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+/* ─── PROJECTOR CHART ────────────────────────────────────────── */
+function renderProjector(init,sip,avgRet,years,profileLabel){
+  const ctx=document.getElementById("projectorChart").getContext("2d");
+  if(chartProj) chartProj.destroy();
+
+  const labels=Array.from({length:years+1},(_,i)=>i===0?"Now":`Y${i}`);
+  const portData=projectWealth(init,sip,avgRet,years);
+  const fdData  =projectWealth(init,sip,6,years);
+  const invData =totalInvested(init,sip,years);
+
+  document.getElementById("legendPortfolio").textContent=`${profileLabel} Portfolio (${avgRet.toFixed(1)}% p.a.)`;
+
+  chartProj=new Chart(ctx,{
+    type:"line",
+    data:{
+      labels,
+      datasets:[
+        {
+          label:`${profileLabel} Portfolio`,
+          data:portData,
+          borderColor:"#4f46e5",
+          backgroundColor:"rgba(79,70,229,0.06)",
+          borderWidth:2.5,
+          pointRadius:0,pointHoverRadius:6,
+          tension:0.4,fill:true,
+        },
+        {
+          label:"Fixed Deposit (6%)",
+          data:fdData,
+          borderColor:"#94a3b8",
+          backgroundColor:"transparent",
+          borderWidth:2,
+          borderDash:[6,4],
+          pointRadius:0,pointHoverRadius:5,
+          tension:0.4,
+        },
+        {
+          label:"Total Invested",
+          data:invData,
+          borderColor:"#d97706",
+          backgroundColor:"transparent",
+          borderWidth:2,
+          borderDash:[3,3],
+          pointRadius:0,pointHoverRadius:5,
+          tension:0,
+        }
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:"index",intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmtINR(c.parsed.y)}`}}
+      },
+      scales:{
+        x:{
+          grid:{display:false},
+          ticks:{maxTicksLimit:12,font:{size:11}}
+        },
+        y:{
+          grid:{color:"#f1f5f9",lineWidth:1},
+          border:{dash:[4,4]},
+          ticks:{
+            callback:v=>{
+              if(v>=1e7) return "₹"+(v/1e7).toFixed(0)+"Cr";
+              if(v>=1e5) return "₹"+(v/1e5).toFixed(0)+"L";
+              return "₹"+v.toLocaleString("en-IN");
+            },
+            font:{size:11}
+          }
+        }
+      }
+    }
+  });
+}
+
+/* ─── CSV UPLOAD ─────────────────────────────────────────────── */
+document.getElementById("csvFile").addEventListener("change",function(e){
+  const file=e.target.files[0];
+  if(!file) return;
+
+  Papa.parse(file,{
+    header:true,skipEmptyLines:true,
+    complete:function(res){
+      const rows=res.data;
+      if(!rows||rows.length===0){ alert("CSV appears to be empty."); return; }
+
+      const mapped=rows.map(r=>{
+        const keys=Object.keys(r);
+        const find=(...ns)=>keys.find(k=>ns.some(n=>k.toLowerCase().replace(/\s+/g,"").includes(n.toLowerCase().replace(/\s+/g,""))));
+
+        const nameK  =find("Fund Name","FundName","name","fund");
+        const catK   =find("Category","cat","type","asset");
+        const retK   =find("3-Year Return","3YrReturn","return","3yr","annualized");
+        const expK   =find("Expense Ratio","expense","er","ratio");
+        const ratingK=find("Morningstar Rating","rating","stars","morningstar");
+        const riskK  =find("risk","risk level","risklevel");
+        const symK   =find("symbol","ticker","code");
+
+        const threeYr=parseFloat((r[retK]||"0").toString().replace(/%/g,""))||0;
+        const expense=parseFloat((r[expK]||"0").toString().replace(/%/g,""))||0;
+        const rating =Math.min(5,Math.max(1,parseInt((r[ratingK]||"3").toString())||3));
+
+        let risk=r[riskK]||"";
+        if(!risk){
+          const cat=(r[catK]||"").toLowerCase();
+          if(cat.includes("small")||cat.includes("mid")||cat.includes("sector")) risk="Aggressive";
+          else if(cat.includes("debt")||cat.includes("bond")||cat.includes("gilt")||cat.includes("liquid")) risk="Conservative";
+          else risk="Moderate";
+        } else {
+          risk=risk.charAt(0).toUpperCase()+risk.slice(1).toLowerCase();
+          if(!["Conservative","Moderate","Aggressive"].includes(risk)) risk="Moderate";
+        }
+
+        return {
+          name:(r[nameK]||"").trim(),
+          symbol:(r[symK]||"N/A").trim(),
+          category:(r[catK]||"Equity").trim(),
+          risk, threeYrReturn:threeYr, expenseRatio:expense, rating
+        };
+      }).filter(f=>f.name.length>0);
+
+      if(mapped.length===0){
+        alert("Could not parse valid fund data.\nExpected columns: Fund Name, Category, 3-Year Return, Expense Ratio, Morningstar Rating");
+        return;
+      }
+
+      fundInventory=mapped;
+
+      const badge=document.getElementById("inventoryBadge");
+      badge.textContent=`✓ ${mapped.length} Funds Loaded`;
+      badge.style.display="inline-block";
+      setTimeout(()=>{ badge.style.display="none"; },4500);
+
+      if(document.getElementById("outputSection").style.display!=="none") generateStrategy();
+      e.target.value="";
+    },
+    error:function(err){ alert("CSV parse error: "+err.message); }
+  });
+});
+</script>
+</body>
+</html>
