@@ -250,28 +250,3 @@ Users should independently verify important information and consult a qualified 
 
 MBA Student  
 Interested in Wealth Management, Investment Analysis and Financial Planning
-
----
-
-### Suggested GitHub repository structure
-
-```text
-WealthAxis/
-├── index.html
-├── README.md
-├── assets/
-└── screenshots/
-```
-
-Keep the repository clean and commit meaningful release versions instead of repeatedly uploading files with random names.
-
-Suggested release naming:
-
-```text
-v1.0-academic
-v2.0-responsive
-v3.0-chatbot
-v4.0-multilingual
-v5.0-pro-tools
-v6.0-public
-```
