@@ -10,7 +10,7 @@ It combines risk profiling, asset allocation, mutual-fund research, portfolio pr
 
 ## Live Demo
 
-**[Open WealthAxis](YOUR_GITHUB_PAGES_URL)**
+**(https://nischalmschanakya-max.github.io/Wealth_Management/)**
 
 Replace the link above with the final GitHub Pages URL.
 
